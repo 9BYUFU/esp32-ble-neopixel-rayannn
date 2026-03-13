@@ -19,10 +19,10 @@ button, input {
 <body>
 
 <h1>Commande LED Neopixel (BLE)</h1>
+
 <a href="page2.html">
 <button>Page 2</button>
-</a>
-<button onclick="connect()">🔗 Connexion BLE</button><br>
+<button onclick="connect()">🔗 Connexion BLE</button><br> </a>
 
 
 <label>Couleur :</label><br>

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎮 ESP32 Web Gamepad Pro</title>
+
+<script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.1/dist/nipplejs.min.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+    color: #fff;
+    font-family: 'Orbitron', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(120,119,198,0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255,119,198,0.3) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(120,219,255,0.2) 0%, transparent 50%);
+    z-index: -1;
+    animation: bgShift 20s ease-in-out infinite alternate;
+}
+
+@keyframes bgShift {
+    0% { transform: scale(1) rotate(0deg); }
+    100% { transform: scale(1.1) rotate(1deg); }
+}
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+    position: relative;
+}
+
+h1 {
+    font-size: 2.5em;
+    font-weight: 900;
+    text-align: center;
+    margin: 20px 0;
+    background: linear-gradient(45deg, #00f5ff, #ff00ff, #00ff88);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 30px rgba(0,255,255,0.5);
+    animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+    from { filter: drop-shadow(0 0 10px #00f5ff); }
+    to { filter: drop-shadow(0 0 20px #ff00ff); }
+}
+
+.status {
+    text-align: center;
+    padding: 15px;
+    margin: 20px 0;
+    border-radius: 15px;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.connect-btn {
+    display: block;
+    margin: 20px auto;
+    padding: 18px 40px;
+    font-size: 1.3em;
+    font-weight: 700;
+    background: linear-gradient(45deg, #00d4ff, #0099cc);
+    border: none;
+    border-radius: 50px;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(0,212,255,0.4);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.connect-btn:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0,212,255,0.6);
+}
+
+.connect-btn:active {
+    transform: translateY(-2px);
+}
+
+/* D-PAD Section */
+.dpad-container {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 15px;
+    max-width: 450px;
+    margin: 40px auto;
+    padding: 30px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 25px;
+    backdrop-filter: blur(20px);
+    border: 2px solid rgba(255,255,255,0.1);
+    box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+}
+
+.left-btn {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    background: linear-gradient(180deg, #ff6b35, #f7931e);
+    border-radius: 20px 0 0 20px;
+}
+
+.right-btn {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    background: linear-gradient(180deg, #9b59b6, #8e44ad);
+    border-radius: 0 20px 20px 0;
+}
+
+.up-btn {
+    grid-column: 2;
+    grid-row: 1;
+    background: linear-gradient(180deg, #27ae60, #2ecc71);
+    border-radius: 20px 20px 0 0;
+}
+
+.down-btn {
+    grid-column: 2;
+    grid-row: 2;
+    background: linear-gradient(180deg, #e74c3c, #c0392b);
+    border-radius: 0 0 20px 20px;
+}
+
+/* Boutons communs */
+.game-btn {
+    font-size: 1.6em;
+    font-weight: 900;
+    padding: 25px 10px;
+    border: none;
+    border-radius: 20px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.game-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s;
+}
+
+.game-btn:hover::before {
+    left: 100%;
+}
+
+.game-btn:hover {
+    transform: scale(1.05);
+    filter: brightness(1.2);
+}
+
+.game-btn:active {
+    transform: scale(0.95);
+}
+
+/* Bouton A */
+.a-btn {
+    display: block;
+    margin: 30px auto;
+    padding: 25px 50px;
+    font-size: 2.2em;
+    background: linear-gradient(45deg, #3498db, #2980b9);
+    box-shadow: 0 15px 40px rgba(52,152,219,0.4);
+}
+
+/* LED Button */
+.led-btn {
+    display: block;
+    margin: 20px auto;
+    padding: 15px 40px;
+    font-size: 1.2em;
+    background: linear-gradient(45deg, #f39c12, #e67e22);
+    box-shadow: 0 10px 30px rgba(243,156,18,0.4);
+}
+
+.led-btn.active {
+    background: linear-gradient(45deg, #e74c3c, #c0392b);
+    box-shadow: 0 10px 30px rgba(231,76,60,0.6);
+}
+
+/* Joystick */
+.joystick-container {
+    margin: 40px auto;
+    width: 300px;
+    height: 300px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+    backdrop-filter: blur(20px);
+    border: 3px solid rgba(255,255,255,0.2);
+    box-shadow: inset 0 0 50px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#zone {
+    width: 280px !important;
+    height: 280px !important;
+    border-radius: 50% !important;
+    background: rgba(0,0,0,0.3) !important;
+    box-shadow: inset 0 0 30px rgba(255,255,255,0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .dpad-container {
+        grid-template-columns: 1fr 1.5fr 1fr;
+        gap: 10px;
+        padding: 20px;
+        max-width: 350px;
+    }
+    
+    .game-btn {
+        padding: 20px 8px;
+        font-size: 1.4em;
+    }
+    
+    h1 { font-size: 2em; }
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+    <h1>🚀 ESP32 Gamepad Pro</h1>
+    
+    <div class="status" id="status">🔴 Déconnecté</div>
+    
+    <button class="connect-btn" onclick="connect()">🔗 Connexion BLE</button>
+    <button class="led-btn" id="ledBtn" onclick="toggleLED()">💡 LED OFF</button>
+    
+    <button class="a-btn game-btn" id="aBtn" onclick="pressButtonA()">🅰️ ACTION</button>
+
+    <div class="dpad-container">
+        <button class="left-btn game-btn" id="leftBtn" onclick="pressLeft()">← LEFT</button>
+        <button class="up-btn game-btn" id="upBtn" onclick="pressUp()">↑ AVANT</button>
+        <button class="down-btn game-btn" id="downBtn" onclick="pressDown()">↓ ARRIÈRE</button>
+        <button class="right-btn game-btn" id="rightBtn" onclick="pressRight()">→ RIGHT</button>
+    </div>
+
+    <div class="joystick-container">
+        <div id="zone"></div>
+    </div>
+</div>
+
+<script>
+// UUIDs (identiques à avant)
+const SERVICE_UUID = "aa9660ac-aa10-4cea-91a2-e1874c9dfc02";
+const COLOR_UUID   = "aa9660ac-aa11-4cea-91a2-e1874c9dfc02";
+const BRIGHT_UUID  = "aa9660ac-aa12-4cea-91a2-e1874c9dfc02";
+const BUTTON_A_UUID = "aa9660ac-aa13-4cea-91a2-e1874c9dfc02";
+const UP_UUID      = "aa9660ac-aa14-4cea-91a2-e1874c9dfc02";
+const DOWN_UUID    = "aa9660ac-aa15-4cea-91a2-e1874c9dfc02";
+const LEFT_UUID    = "aa9660ac-aa16-4cea-91a2-e1874c9dfc02";
+const RIGHT_UUID   = "aa9660ac-aa17-4cea-91a2-e1874c9dfc02";
+
+let device, server, colorChar, brightChar, buttonAChar, upChar, downChar, leftChar, rightChar;
+let ledState = false;
+let connected = false;
+
+// Connexion avec status
+async function connect() {
+    try {
+        device = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [SERVICE_UUID]
+        });
+        
+        server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+
+        colorChar  = await service.getCharacteristic(COLOR_UUID);
+        brightChar = await service.getCharacteristic(BRIGHT_UUID);
+        buttonAChar = await service.getCharacteristic(BUTTON_A_UUID);
+        upChar     = await service.getCharacteristic(UP_UUID);
+        downChar   = await service.getCharacteristic(DOWN_UUID);
+        leftChar   = await service.getCharacteristic(LEFT_UUID);
+        rightChar  = await service.getCharacteristic(RIGHT_UUID);
+
+        connected = true;
+        document.getElementById('status').innerHTML = '🟢 <strong>Connecté !</strong>';
+        document.getElementById('status').style.background = 'rgba(76,175,80,0.3)';
+        
+    } catch (error) {
+        alert('❌ Erreur de connexion: ' + error);
+    }
+}
+
+// Fonction générique pour boutons
+function sendButtonPress(char, btn) {
+    if (!char || !connected) {
+        alert("🔌 Connectez d'abord l'ESP32 !");
+        return;
+    }
+    
+    char.writeValue(new Uint8Array([1]));
+    btn.style.transform = 'scale(0.95)';
+    
+    setTimeout(() => {
+        char.writeValue(new Uint8Array([0]));
+        btn.style.transform = 'scale(1)';
+    }, 120);
+}
+
+function pressUp() { sendButtonPress(upChar, document.getElementById('upBtn')); }
+function pressDown() { sendButtonPress(downChar, document.getElementById('downBtn')); }
+function pressLeft() { sendButtonPress(leftChar, document.getElementById('leftBtn')); }
+function pressRight() { sendButtonPress(rightChar, document.getElementById('rightBtn')); }
+function pressButtonA() { sendButtonPress(buttonAChar, document.getElementById('aBtn')); }
+
+function toggleLED() {
+    if (!connected) return alert("🔌 Connectez d'abord !");
+    
+    ledState = !ledState;
+    const ledBtn = document.getElementById('ledBtn');
+    
+    if (ledState) {
+        brightChar.writeValue(new Uint8Array([255]));
+        ledBtn.innerHTML = '💡 <strong>LED ON</strong>';
+        ledBtn.classList.add('active');
+    } else {
+        brightChar.writeValue(new Uint8Array([0]));
+        ledBtn.innerHTML = '💡 <strong>LED OFF</strong>';
+        ledBtn.classList.remove('active');
+    }
+}
+
+// Joystick couleur
+function angleToRGB(angle) {
+    const rad = angle * Math.PI / 180;
+    const r = Math.max(0, Math.cos(rad)) * 255;
+    const g = Math.max(0, Math.cos(rad - 2*Math.PI/3)) * 255;
+    const b = Math.max(0, Math.cos(rad - 4*Math.PI/3)) * 255;
+    return [r|0, g|0, b|0];
+}
+
+const joystick = nipplejs.create({
+    zone: document.getElementById('zone'),
+    mode: 'static',
+    position: { left: '50%', top: '50%' },
+    color: '#00ff88',
+    size: 150
+});
+
+joystick.on('move', (evt, data) => {
+    if (!colorChar || !connected) return;
+    const angle = data.angle.degree;
+    const force = Math.min(data.force, 1);
+    const [r, g, b] = angleToRGB(angle);
+    const brightness = Math.floor(force * 255);
+    colorChar.writeValue(new Uint8Array([r, g, b]));
+    brightChar.writeValue(new Uint8Array([brightness]));
+});
+
+joystick.on('end', () => {
+    if (!brightChar || !connected) return;
+    brightChar.writeValue(new Uint8Array([0]));
+});
+</script>
+</body>
+</html>

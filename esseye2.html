@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 ESP32 Robot Control Pro</title>
+    
+    <!-- NippleJS -->
+    <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.1/dist/nipplejs.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #00f5ff, #ff00ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            background: rgba(0, 255, 255, 0.1);
+            border: 2px solid #00f5ff;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            backdrop-filter: blur(10px);
+        }
+
+        .status.connected {
+            background: rgba(0, 255, 0, 0.2);
+            border-color: #00ff00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .control-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 25px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .panel-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #00f5ff;
+        }
+
+        .joystick-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        #zone {
+            width: 280px;
+            height: 280px;
+            background: radial-gradient(circle, rgba(0,255,255,0.1) 0%, transparent 70%);
+            border: 3px solid #00f5ff;
+            border-radius: 50%;
+            position: relative;
+            box-shadow: 0 0 30px rgba(0, 245, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        #zone.active {
+            box-shadow: 0 0 50px rgba(0, 245, 255, 0.6);
+            background: radial-gradient(circle, rgba(0,255,255,0.2) 0%, transparent 70%);
+        }
+
+        .btn {
+            background: linear-gradient(145deg, #333, #555);
+            border: none;
+            border-radius: 15px;
+            color: white;
+            font-size: 1.1em;
+            font-weight: bold;
+            padding: 18px 25px;
+            margin: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-connect {
+            background: linear-gradient(145deg, #00d4ff, #0099cc);
+            box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-connect:hover {
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.6);
+        }
+
+        .btn-danger {
+            background: linear-gradient(145deg, #ff4444, #cc0000);
+        }
+
+        .btn-robot {
+            background: linear-gradient(145deg, #44ff44, #00cc00);
+            font-size: 1.3em;
+            padding: 20px 30px;
+            min-width: 120px;
+        }
+
+        .btn-led {
+            background: linear-gradient(145deg, #ffaa00, #cc8800);
+            font-size: 1.2em;
+            padding: 15px 30px;
+        }
+
+        .robot-dpad {
+            display: grid;
+            grid-template-areas: 
+                ". up ."
+                "left center right"
+                ". down .";
+            gap: 15px;
+            justify-items: center;
+            align-items: center;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+
+        .btn-up { grid-area: up; }
+        .btn-left { grid-area: left; }
+        .btn-right { grid-area: right; }
+        .btn-down { grid-area: down; }
+        .btn-stop { 
+            grid-area: center; 
+            background: linear-gradient(145deg, #ff4444, #cc0000) !important;
+            font-size: 1.4em;
+            padding: 25px 35px;
+            border-radius: 50%;
+            width: 90px;
+            height: 90px;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 20px #00f5ff; }
+            to { text-shadow: 0 0 30px #ff00ff, 0 0 40px #00f5ff; }
+        }
+
+        @media (max-width: 768px) {
+            .controls-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            #zone {
+                width: 250px;
+                height: 250px;
+            }
+        }
+
+        .connection-status {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #ff4444;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 1.5s infinite;
+            transition: all 0.3s ease;
+        }
+
+        .connection-status.connected {
+            background: #00ff00;
+            animation: none;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 ESP32 Robot Control Pro</h1>
+            <div id="status" class="status">
+                <span id="status-dot" class="connection-status"></span>
+                <span>🔗 Cliquez pour connecter via BLE</span>
+            </div>
+        </div>
+
+        <div class="controls-grid">
+            <!-- Panneau Robot -->
+            <div class="control-panel">
+                <div class="panel-title">🚗 Contrôle Robot</div>
+                <div class="robot-dpad">
+                    <div class="btn btn-robot btn-up" onclick="robotMove('forward')">⬆️</div>
+                    <button class="btn btn-robot btn-left" onclick="robotMove('left')">⬅️</button>
+                    <button class="btn btn-robot btn-stop" onclick="robotMove('stop')">⏹️</button>
+                    <button class="btn btn-robot btn-right" onclick="robotMove('right')">➡️</button>
+                    <div class="btn btn-robot btn-down" onclick="robotMove('backward')">⬇️</div>
+                </div>
+            </div>
+
+            <!-- Panneau Joystick -->
+            <div class="control-panel">
+                <div class="panel-title">🎨 Joystick Couleur LED</div>
+                <div class="joystick-container">
+                    <div id="zone"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boutons Principaux -->
+        <div style="text-align: center; margin-bottom: 30px;">
+            <button class="btn btn-connect" onclick="connect()" style="font-size: 1.4em; padding: 20px 40px; margin: 10px;">
+                🔗 Connexion BLE
+            </button>
+            <button class="btn btn-danger" onclick="disconnect()" style="font-size: 1.4em; padding: 20px 40px; margin: 10px;">
+                🔌 Déconnexion
+            </button>
+            <br>
+            <button class="btn btn-led" onclick="toggleLED()" style="margin: 10px;">
+                💡 LED ON / OFF
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ======================= BLE UUIDs =======================
+        const SERVICE_UUID = "aa9660ac-aa10-4cea-91a2-e1874c9dfc02";
+        const COLOR_UUID   = "aa9660ac-aa11-4cea-91a2-e1874c9dfc02";
+        const ROBOT_UUID   = "aa9660ac-aa13-4cea-91a2-e1874c9dfc02";
+
+        let device, server, colorChar, robotChar;
+        let connected = false;
+        let ledState = false;
+
+        // ======================= Status =======================
+        function updateStatus(msg, isConnected = false) {
+            const statusEl = document.getElementById('status');
+            const dotEl = document.getElementById('status-dot');
+            
+            statusEl.innerHTML = `<span id="status-dot" class="connection-status ${isConnected ? 'connected' : ''}"></span>${msg}`;
+            document.getElementById('zone').classList.toggle('active', isConnected);
+        }
+
+        // ======================= Connexion BLE =======================
+        async function connect() {
+            try {
+                updateStatus("🔄 Connexion BLE en cours...");
+                
+                device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                server = await device.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+
+                colorChar = await service.getCharacteristic(COLOR_UUID);
+                robotChar = await service.getCharacteristic(ROBOT_UUID);
+
+                connected = true;
+                updateStatus("✅ ESP32 Robot connecté ! Contrôlez votre robot !", true);
+                
+            } catch (error) {
+                updateStatus("❌ Erreur de connexion: " + error.message);
+            }
+        }
+
+        // ======================= Déconnexion =======================
+        async function disconnect() {
+            if (server) {
+                server.disconnect();
+                connected = false;
+                updateStatus("🔌 Déconnecté", false);
+            }
+        }
+
+        // ======================= LED Toggle =======================
+        async function toggleLED() {
+            if (!connected) {
+                alert("⚠️ Connectez d'abord votre ESP32 !");
+                return;
+            }
+            
+            ledState = !ledState;
+            const value = ledState ? new Uint8Array([255, 255, 0]) : new Uint8Array([0, 0, 0]);
+            await colorChar.writeValue(value);
+        }
+
+        // ======================= Robot Control =======================
+        async function robotMove(direction) {
+            if (!connected || !robotChar) {
+                alert("⚠️ Connectez d'abord votre ESP32 !");
+                return;
+            }
+            
+            const commands = { forward: 1, backward: 2, left: 3, right: 4, stop: 0 };
+            await robotChar.writeValue(new Uint8Array([commands[direction]]));
+            
+            updateStatus(`🤖 ${direction.toUpperCase()} !`, true);
+            
+            if (direction !== 'stop') {
+                setTimeout(async () => {
+                    if (connected && robotChar) {
+                        await robotChar.writeValue(new Uint8Array([0]));
+                    }
+                }, 400);
+            }
+        }
+
+        // ======================= Joystick Couleur =======================
+        function angleToRGB(angle) {
+            const rad = angle * Math.PI / 180;
+            const r = Math.max(0, Math.cos(rad)) * 255;
+            const g = Math.max(0, Math.cos(rad - 2*Math.PI/3)) * 255;
+            const b = Math.max(0, Math.cos(rad - 4*Math.PI/3)) * 255;
+            return [Math.floor(r), Math.floor(g), Math.floor(b)];
+        }
+
+        // Initialiser Joystick
+        const joystick = nipplejs.create({
+            zone: document.getElementById('zone'),
+            mode: 'static',
+            position: { left: '50%', top: '50%' },
+            color: '#00f5ff',
+            size: 150
+        });
+
+        // Joystick Events
+        joystick.on('move', async (evt, data) => {
+            if (!connected || !colorChar) return;
+            
+            const [r, g, b] = angleToRGB(data.angle.degree);
+            const force = Math.min(data.force || 0, 1);
+            const brightness = Math.floor(force * 255);
+            
+            await colorChar.writeValue(new Uint8Array([r, g, b]));
+        });
+
+        joystick.on('end', async () => {
+            if (connected && colorChar) {
+                await colorChar.writeValue(new Uint8Array([0, 0, 0]));
+            }
+        });
+
+        // Auto-reconnect on page focus
+        window.addEventListener('focus', () => {
+            if (device && device.gatt.connected) {
+                updateStatus("✅ ESP32 Robot connecté !", true);
+            }
+        });
+    </script>
+</body>
+</html>
